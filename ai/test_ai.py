@@ -3,19 +3,19 @@
 from api.get import *
 import math
 
-COMMANDER = 0
-WARRIOR = 1
-PROTECTOR = 2
-ARCHER = 3
-
 def update(context):
-    bots = my_bots()
-    # 获取己方兵种
-    war = my_bot_by_id(WARRIOR)
-    pro = my_bot_by_id(PROTECTOR)
-    arc = my_bot_by_id(ARCHER)
+    bots = my_bots()  # 获取当前所有机器人列表
 
-    act = True # 标记是否已经确定行动，ture为未决策完
+    def my_bot_by_type(tp):
+        return next((b for b in bots if b.type == tp), None)
+
+    # 使用闭包函数获取特定类型的机器人
+    war = my_bot_by_type('warrior')
+    pro = my_bot_by_type('protector')
+    arc = my_bot_by_type('archer')
+
+
+    act = True # 标记是否已经确定行动，ture为未决策完，不用return会灵活一些，可以根据后面的情况变更行动方案
     enms = enemy_bots()
     
     # 优先执行本轮可以进行的攻击
