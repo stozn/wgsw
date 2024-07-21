@@ -14,6 +14,8 @@ def update(context):
     # 选一个我的兵，给他派个任务
     bs = api.get.my_waiting_bots()
     bs = [b for b in bs if b.type_id != 100]
+    if len(bs) == 0:
+        return
     i = context.turn % len(bs)
     b = bs[i]
     b.to_attack(bot=e)
