@@ -10,7 +10,7 @@ def attack_minimum_hp_enemy(board,myside,soldier_id):
         x,y=target[enemy]
         pos = (x,y)
         hp = realm.get_chess_details_by_pos(layout = board.layout, pos = pos, return_details = True) ['hp']
-        if hp<min_hp:
+        if hp < min_hp:
             min_hp = hp
             pos=(x,y)
             chess = enemy
@@ -57,3 +57,61 @@ def distance(board,myside,my_chess,enemy):
     x, y = my_chess_pos
     tx, ty = enemy_pos
     return abs(ty-y)+abs(tx-x)
+
+#获得补给区的所有棋子信息
+def pos_to_chess(board):
+    info = []
+    for pos in (3,3),(3,4),(4,3),(4,4):
+        Dict = realm.get_chess_details_by_pos(board.layout,pos)
+        info.append(Dict)
+    return info
+
+#让我方棋子朝着pos处移动(相同情况下，优先往队友近的地方靠，并且路过敌人会选择血量最少的攻击)
+def move_to(board,myside,my_chess,pos):
+    now_x,now_y = get_pos(board,myside,my_chess)
+    List = realm.get_valid_move(board.layout, myside, my_chess)
+    Chess = realm.get_valid_chess_id(board.layout, myside, include_commander=False)
+    Chess = [chess for chess in Chess if chess != my_chess]
+    min_pos = 10000
+    least_peer_pos = 10000
+    last_x,last_y = pos
+    if now_x==last_x and now_y == last_y:
+        return None
+    end_x = 0
+    end_y = 0
+    for (x,y) in List:
+        min_peer_pos = 10000
+        for chess in Chess:
+            tx,ty = get_pos(board,myside,chess)
+            if min_peer_pos > abs(x-tx)+abs(y-ty):
+                min_peer_pos = abs(x-tx)+abs(y-ty)
+        if min_pos > abs(last_x-x)+abs(last_y-y):
+            min_pos = abs(last_x-x)+abs(last_y-y)
+            least_peer_pos = min_peer_pos
+            end_x = x
+            end_y = y
+        if min_pos == abs(last_x-x)+abs(last_y-y):
+            if least_peer_pos > min_peer_pos:
+                least_peer_pos = min_peer_pos
+                end_x = x
+                end_y = y
+    return move_and_attack(board,myside,my_chess,(end_x,end_y))
+
+#判断棋子走到pos(一定要能走到)处能否打人，能则返回走到后开打(优先打血量最少的)的Action，不能则返回走到目的地的Action
+def move_and_attack(board,myside,my_chess,pos):
+    x,y = get_pos(board,myside,my_chess)
+    tx,ty = pos
+    mdr = tx-x
+    mdc = ty-y
+    my_valid_action = realm.get_valid_actions(board.layout,myside,chess_id=my_chess)
+    min_hp = 10000
+    last_action = realm.Action(chess_id=my_chess, mdr=mdr, mdc=mdc, adr=0, adc=0)
+    for action in my_valid_action:
+        if action == None:
+            continue
+        if action.mdr == mdr and action.mdc == mdc and (action.adc !=0 or action.adr !=0):
+            enemy_hp = realm.get_chess_details_by_pos(board.layout, (tx+action.adr, ty+action.adc))['hp']
+            if enemy_hp < min_hp :
+                min_hp = enemy_hp
+                last_action = action
+    return last_action
