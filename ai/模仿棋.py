@@ -27,7 +27,7 @@ def update(context):
                    key=lambda bot: bot.distance(enm))[0].to_attack(enm)
             act = False
 
-    # 优先执行本轮可以进行的攻击
+    # 优先执行本轮可以进行的攻击  *** TODO 可以进补给区再攻击要先进补给区
     if act:
         atk_tms = 20  # 最低攻击次数
         for bot in bots:
@@ -40,7 +40,12 @@ def update(context):
                     bot.to_attack(atk_enms[0])  # 平台会有行动覆盖，自动会取最后一次行动
                     act = False  # 行动完成，后面的移动就不执行了
 
-    # 没有可攻击，则模仿棋
+
+    '''
+    NOTE
+    模仿棋这里主要是第一次主动攻击后就破坏了对称关系，后续的行动策略如何设计？
+    '''
+    # 没有可攻击，则模仿棋 *** BUG 检测移动的位置是否有效，因为优先攻击后位置与对手不再2是对称的了
     if act and ops and ops[0].move:
         enm_bot = ops[0].bot
         print(enm_bot.type, ops[0].move)
@@ -54,7 +59,7 @@ def update(context):
     def on(bot, pos):
         return bot.row == pos[0] and bot.col == pos[1]
 
-    # 优先使用战士快速抢占补给区（3,3）ps：暂时是按进攻方
+    # 优先使用战士快速抢占补给区（3,3）ps：暂时是按进攻方  *** TODO 抢占的位置合理分配（如已经被占领）
     pos = (3, 3)
     if act and war and not on(war, pos):
         war.toward(pos)
