@@ -51,32 +51,32 @@ class LayoutDetails(TypedDict):  # 仅用于标注
     pos: tuple[int, int]
 
 
-class Layout:
+class Layout:  # 保存棋局信息，不建议更改
     def __init__(self, pos_to_chess: dict[int, int], chess_details: list[Optional[tuple[int, int]]]):
         self.pos_to_chess: dict[int, int] = pos_to_chess  # 从int_pos到int_chess_id
         self.chess_details: list[Optional[tuple[int, int]]] = chess_details  # 从int_chess_id到int_pos,hp
 
-    def set_chess_new_pos(self, int_chess_id: int, new_int_pos: Optional[int]):
-        old_pos, hp = self.chess_details[int_chess_id]
+    def set_chess_new_pos(self, int_chess_id: int, new_int_pos: Optional[int]):  # 设置新位置
+        old_pos, hp = self.chess_details[int_chess_id]  # 获取该棋子旧的信息
         if new_int_pos is None:
             self.chess_details[int_chess_id] = None
             self.pos_to_chess.pop(old_pos)
-        elif old_pos != new_int_pos:
+        elif old_pos != new_int_pos:  # 新位置
             self.pos_to_chess.pop(old_pos)
-            self.pos_to_chess[new_int_pos] = int_chess_id
-            self.chess_details[int_chess_id] = (new_int_pos, hp)
+            self.pos_to_chess[new_int_pos] = int_chess_id  # 记录新位置上的棋子id
+            self.chess_details[int_chess_id] = (new_int_pos, hp)  # 更新棋子信息（位置，血量）
 
-    def set_hp(self, int_chess_id: int, hp: int, *, hp_addition: bool = False):
+    def set_hp(self, int_chess_id: int, hp: int, *, hp_addition: bool = False):  # 更新血量
         pos, old_hp = self.chess_details[int_chess_id]
         if hp_addition:
             self.chess_details[int_chess_id] = (pos, old_hp + hp)
         else:
             self.chess_details[int_chess_id] = (pos, hp)
 
-    def copy(self) -> 'Layout':
+    def copy(self) -> 'Layout':  # 复制局内信息
         return Layout(self.pos_to_chess.copy(), self.chess_details.copy())
 
-    def details(self) -> Generator[LayoutDetails, None, None]:
+    def details(self) -> Generator[LayoutDetails, None, None]:  # 获取局内信息
         for int_chess_id, chess in enumerate(self.chess_details):
             if chess is None:
                 continue
@@ -221,8 +221,8 @@ def valid_action(layout: Layout, side: str, action: Optional[Action]) -> bool:
         return True
     if action.chess_id not in [ChessType.WARRIOR, ChessType.ARCHER, ChessType.PROTECTOR]:
         return False
-    data = get_chess_profile(action.chess_id)
-    if (action.adr and action.adc and (action.adr, action.adc) not in data['atk_pos']) or (
+    data = get_chess_profile(action.chess_id)  # 获取该棋子的基础信息（伤害、血量、移动范围，攻击范围）
+    if (action.adr and action.adc and (action.adr, action.adc) not in data['atk_pos']) or (  # 判断行动是否合法
             abs(action.mdr) + abs(action.mdc) > data['move_range']):
         return False
     int_chess_id = _chess_to_int[side, action.chess_id]
@@ -240,7 +240,7 @@ def valid_action(layout: Layout, side: str, action: Optional[Action]) -> bool:
     else:
         return False
 
-
+# 返回指定队伍指定棋子的基础信息
 def get_chess_details(layout: Layout, side: str, chess_id: ChessType, *, return_details: bool = True) -> \
         Union[LayoutDetails, bool, None]:
     int_chess_id = _chess_to_int[side, chess_id]
@@ -253,7 +253,7 @@ def get_chess_details(layout: Layout, side: str, chess_id: ChessType, *, return_
         int_pos, hp = chess
         return {'side': side, 'chess_id': chess_id, 'hp': hp, 'pos': (int_pos // 10, int_pos % 10)}
 
-
+# 返回指定位置信息
 def get_chess_details_by_pos(layout: Layout, pos: tuple[int, int], *, return_details: bool = True) -> \
         Union[LayoutDetails, bool, None]:
     int_pos = 10 * pos[0] + pos[1]
@@ -267,14 +267,14 @@ def get_chess_details_by_pos(layout: Layout, pos: tuple[int, int], *, return_det
         _, hp = layout.chess_details[int_chess_id]
         return {'side': side, 'chess_id': chess_id, 'hp': hp, 'pos': pos}
 
-
+# 返回指定队伍存活棋子下标，可以选择是否包含司令
 def get_valid_chess_id(layout: Layout, side: str, *, include_commander: bool = True) -> list[ChessType]:
     id_range = [ChessType.COMMANDER, ChessType.ARCHER, ChessType.PROTECTOR,
                 ChessType.WARRIOR] if include_commander else [ChessType.ARCHER, ChessType.PROTECTOR, ChessType.WARRIOR]
     ret = []
     for chess_id in id_range:
         if layout.chess_details[_chess_to_int[side, chess_id]] is not None:
-            ret.append(chess_id)
+            ret.append(chess_id)2
     return ret
 
 
@@ -292,7 +292,7 @@ _warrior_data = {'atk': 200, 'atk_pos': [(0, 1), (0, -1), (1, 0), (-1, 0)], 'ini
 _protector_data = {'atk': 150, 'atk_pos': [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)],
                    'init_hp': 1400, 'move_range': 1}
 
-
+# 返回指定棋子的基本信息（伤害、攻击范围、血量、移动范围（每轮可动的格子数））
 def get_chess_profile(chess_id: ChessType) -> ChessProfile:
     if chess_id == ChessType.COMMANDER:
         return _commander_data
@@ -310,14 +310,14 @@ class _HiddenChessProfile(TypedDict):  # 仅用于标注
     move_range: int
     int_atk_pos: list[int]
 
-
+# 用一维数组表示的基础信息
 _hidden_commander_data = {'atk': 0, 'init_hp': 1600, 'move_range': 0, 'int_atk_pos': []}
 _hidden_archer_data = {'atk': 250, 'init_hp': 700, 'move_range': 1,
                        'int_atk_pos': [-20, -11, -10, -9, -2, -1, 1, 2, 9, 10, 11, 20]}
 _hidden_warrior_data = {'atk': 200, 'init_hp': 1000, 'move_range': 2, 'int_atk_pos': [1, -1, 10, -10]}
 _hidden_protector_data = {'atk': 150, 'init_hp': 1400, 'move_range': 1, 'int_atk_pos': [1, -1, 10, -10, 11, -11, 9, -9]}
 
-
+# 返回指定下标的棋子基础信息（一维），下标取余是因为含有mask的id下，队伍E的棋子id比队伍W的棋子id多4
 def _hidden_get_chess_profile(int_chess_id: int) -> _HiddenChessProfile:
     if (int_chess_id - ChessType.COMMANDER.value) % 4 == 0:
         return _hidden_commander_data
@@ -328,40 +328,40 @@ def _hidden_get_chess_profile(int_chess_id: int) -> _HiddenChessProfile:
     elif (int_chess_id - ChessType.PROTECTOR.value) % 4 == 0:
         return _hidden_protector_data
 
-
+# 返回指定棋子可移动的位置（一维）
 def _hidden_get_valid_move(layout: Layout, int_chess_id: int) -> set[int]:
     int_pos, _ = layout.chess_details[int_chess_id]
 
     position_set: set[int] = {int_pos}
-    for delta_int_pos in [-10, -1, 1, 10]:
+    for delta_int_pos in [-10, -1, 1, 10]: # 上下左右
         new_pos = int_pos + delta_int_pos
         if new_pos in _valid_int_pos and layout.pos_to_chess.get(new_pos) is None:
             position_set.add(new_pos)
 
-    if _hidden_get_chess_profile(int_chess_id)["move_range"] == 2:
+    if _hidden_get_chess_profile(int_chess_id)["move_range"] == 2: # 如果移动范围是2（战士）
         for delta_int_pos in [-20, -11, -9, -2, 2, 9, 11, 20]:
             new_pos = int_pos + delta_int_pos
             if new_pos in _valid_int_pos and layout.pos_to_chess.get(new_pos) is None:
                 if delta_int_pos % 2 == 1:
-                    # 针对1,1型路
+                    # 针对1,1型路（斜着走）
                     dr, dc = _int_to_delta_tuple[delta_int_pos]
                     if int_pos + 10 * dr in position_set or int_pos + dc in position_set:
                         position_set.add(new_pos)
                 else:
-                    # 针对0,2型路
+                    # 针对0,2型路（上下左右走）
                     if int_pos + delta_int_pos // 2 in position_set:
                         position_set.add(new_pos)
 
     return position_set
 
-
+# 返回指定棋子可移动位置（坐标显示）
 def get_valid_move(layout: Layout, side: str, chess_id: ChessType) -> list[tuple[int, int]]:
     ret = []
     for int_pos in _hidden_get_valid_move(layout, _chess_to_int[side, chess_id]):
         ret.append((int_pos // 10, int_pos % 10))
     return ret
 
-
+#  返回指定棋子可攻击位置（坐标显示）
 def get_valid_attack(layout: Layout, side: str, chess_id: ChessType) -> dict[ChessType, tuple[int, int]]:
     int_chess_id = _chess_to_int[side, chess_id]
     chess = layout.chess_details[int_chess_id]
@@ -378,7 +378,7 @@ def get_valid_attack(layout: Layout, side: str, chess_id: ChessType) -> dict[Che
             ret[_int_to_chess[target][1]] = (target_pos // 10, target_pos % 10)
     return ret
 
-
+#  返回指定棋子合法行动（所有可能的移动方式，如果可以攻击则包含移动和攻击方式）
 def get_valid_actions(layout: Layout, side: str, *, chess_id: ChessType = None) -> list[Optional[Action]]:
     # 基于棋局和指定行动方，返回列表,元素是某个棋子所有可能的行动Action
     if chess_id is None:
@@ -389,13 +389,14 @@ def get_valid_actions(layout: Layout, side: str, *, chess_id: ChessType = None) 
     else:
         return _hidden_get_valid_actions(layout, _chess_to_int[side, chess_id], chess_id=chess_id)
 
+# 返回某棋子的可行动信息（所有可能的移动方式，如果可以攻击则包含移动和攻击方式）
 
 def _hidden_get_valid_actions(layout: Layout, int_chess_id: int, *, chess_id: ChessType) -> list[Optional[Action]]:
     chess = layout.chess_details[int_chess_id]
     if chess is None:
         return [None]
     int_pos = chess[0]
-    mask: bool = int_chess_id >= 4
+    mask: bool = int_chess_id >= 4 # 区分棋子所在队伍，>=4为E
 
     result = [None]
     atk_pos = _hidden_get_chess_profile(int_chess_id)['int_atk_pos']
@@ -419,14 +420,14 @@ def make_turn(layout: Layout, side: str, action: Optional[Action], *, turn_numbe
 
     def blood_regen():
         # 回血
-        nonlocal virtual_layout
-        for pos_ in [33, 34, 43, 44]:
+        nonlocal virtual_layout # 引用外部变量，即前面拷贝的棋局
+        for pos_ in [33, 34, 43, 44]: # 回血区域
             current_chess_id = virtual_layout.pos_to_chess.get(pos_)
-            if current_chess_id is not None:
+            if current_chess_id is not None: #如果棋子在回血区则回血
                 hp_limit = _hidden_get_chess_profile(current_chess_id)['init_hp']
                 virtual_layout.set_hp(current_chess_id,
                                       hp=min(hp_limit, virtual_layout.chess_details[current_chess_id][1] + 25))
-                if current_chess_id >= 4:
+                if current_chess_id >= 4: # 给司令加血
                     virtual_layout.set_hp(4, hp=25, hp_addition=True)
                 else:
                     virtual_layout.set_hp(0, hp=25, hp_addition=True)
@@ -437,44 +438,44 @@ def make_turn(layout: Layout, side: str, action: Optional[Action], *, turn_numbe
         if chess is None:
             raise ValueError('Illegal action chess_id')
         # 移动
-        new_pos = chess[0] + 10 * action.mdr + action.mdc
+        new_pos = chess[0] + 10 * action.mdr + action.mdc #移动：当前位置+上下移动+左右移动
         virtual_layout.set_chess_new_pos(int_chess_id, new_pos)
         # 回血
         blood_regen()
         # 攻击
         atk_delta = 10 * action.adr + action.adc
-        if atk_delta:
-            enemy_chess_id = virtual_layout.pos_to_chess.get(new_pos + atk_delta)
-            atk = _hidden_get_chess_profile(int_chess_id)['atk']
-            if virtual_layout.chess_details[enemy_chess_id][1] <= atk:
+        if atk_delta: # 判断范围内是否含有敌人
+            enemy_chess_id = virtual_layout.pos_to_chess.get(new_pos + atk_delta) # 判断“本轮移动之后+攻击距离“的范围内是否有敌人
+            atk = _hidden_get_chess_profile(int_chess_id)['atk'] # 获取当前棋子的攻击力
+            if virtual_layout.chess_details[enemy_chess_id][1] <= atk: # 如果敌方血量小于攻击力则死亡
                 virtual_layout.set_chess_new_pos(enemy_chess_id, None)
             else:
-                virtual_layout.set_hp(enemy_chess_id, hp=-atk, hp_addition=True)
+                virtual_layout.set_hp(enemy_chess_id, hp=-atk, hp_addition=True) # 没死则扣血
     else:
         # 只回血
         blood_regen()
 
-    west_home = virtual_layout.pos_to_chess.get(70)
+    west_home = virtual_layout.pos_to_chess.get(70) #获取大本营是否有棋子
     east_home = virtual_layout.pos_to_chess.get(7)
 
-    new_points = calculate_scores(virtual_layout) if calculate_points == 'hard' else None
+    new_points = calculate_scores(virtual_layout) if calculate_points == 'hard' else None  #如果是hard模式则计算当前分数
 
-    win_w = Final.NONE
+    win_w = Final.NONE # 标志，未结束，实际值为3
     win_e = Final.NONE
     if west_home is None:
-        win_w = Final.COMMANDER_DEAD
-        win_e = Final.WIN
+        win_w = Final.COMMANDER_DEAD # 标志，司令死亡
+        win_e = Final.WIN # 标志，获胜
     elif east_home is None:
         win_e = Final.COMMANDER_DEAD
         win_w = Final.WIN
-    elif turn_number == 99:
-        if calculate_points == 'none':
-            win_w = Final.OTHER
+    elif turn_number == 99: #达到轮次上限
+        if calculate_points == 'none': # none模式直接返回，结果只含有虚拟棋盘
+            win_w = Final.OTHER # 其他标志
             win_e = Final.OTHER
         else:
-            if calculate_points == 'soft':
+            if calculate_points == 'soft': # soft模式返回虚拟棋盘和得分
                 new_points = calculate_scores(virtual_layout)
-            if new_points["W"][0] < new_points["E"][0]:
+            if new_points["W"][0] < new_points["E"][0]: # hard模式，返回虚拟棋盘、得分、具体胜负
                 win_e = Final.WIN
                 win_w = Final.LESS_POINT
             elif new_points["E"][0] < new_points["W"][0]:
@@ -488,17 +489,16 @@ def make_turn(layout: Layout, side: str, action: Optional[Action], *, turn_numbe
                 win_w = Final.LESS_POINT
 
     ret_points = None
-    if calculate_points == 'hard':
+    if calculate_points == 'hard': # hard模式得分具体内容：两队的司令分数变化、兵种分数变化
         ret_points = {"W": (new_points["W"][0] - original_points["W"][0], new_points["W"][1] - original_points["W"][1]),
                       "E": (new_points["E"][0] - original_points["E"][0], new_points["E"][1] - original_points["E"][1])}
 
     return virtual_layout, ret_points, {"W": win_w, "E": win_e}
 
-
+ # 基于棋盘布局判断游戏是否终止。终止返回胜方W或E，不终止返回None
 def is_terminal(layout: Layout) -> Optional[str]:
-    # 基于棋盘布局判断游戏是否终止。终止返回胜方W或E，不终止返回None
-    west_home = layout.pos_to_chess.get(70)
-    east_home = layout.pos_to_chess.get(7)
+    west_home = layout.pos_to_chess.get(70) # 70位置是w的司令
+    east_home = layout.pos_to_chess.get(7)  # 7位置是E的司令
     if west_home is None:
         return 'E'
     elif east_home is None:
@@ -506,20 +506,19 @@ def is_terminal(layout: Layout) -> Optional[str]:
     else:
         return None
 
-
+# 基于棋盘返回计算分数
 def calculate_scores(layout: Layout) -> dict[str, tuple[int, int]]:
-    # 基于棋盘返回计算分数
     w_commander_id = _chess_to_int['W', ChessType.COMMANDER]
     e_commander_id = 4 - w_commander_id
 
     def compute_helper(commander_id):
         home_score, total_score = 0, 0
         commander = layout.chess_details[commander_id]
-        if commander is not None and commander[1] > 0:
-            home_score = commander[1]
+        if commander is not None and commander[1] > 0: # 如果司令存在且hp>0
+            home_score = commander[1]  # 总部的分数等于司令血量
         for chess in layout.chess_details[commander_id + 1:commander_id + 4]:
             if chess is not None and chess[1] > 0:
-                total_score += chess[1]
+                total_score += chess[1] # 其余兵种血量和
         return home_score, total_score
 
     return {'W': compute_helper(w_commander_id), 'E': compute_helper(e_commander_id)}
@@ -527,18 +526,18 @@ def calculate_scores(layout: Layout) -> dict[str, tuple[int, int]]:
 
 def who_win(layout: Layout) -> str:
     # 基于棋盘计算分数来判断谁获胜
-    r = is_terminal(layout)
+    r = is_terminal(layout) # 先判断是否有司令死亡
     if r:
         return r
     else:
         dct = calculate_scores(layout)
         west_home_score, west_total_score = dct['W']
         east_home_score, east_total_score = dct['E']
-        if west_home_score > east_home_score:
+        if west_home_score > east_home_score: #优先判断司令剩余血量
             return 'W'
         elif west_home_score < east_home_score:
             return 'E'
-        elif west_total_score > east_total_score:
+        elif west_total_score > east_total_score: # 司令血量相等判断其他兵种血量和
             return 'W'
         else:
-            return 'E'
+            return 'E' # 全相等后手胜利
