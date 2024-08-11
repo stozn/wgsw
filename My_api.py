@@ -115,3 +115,127 @@ def move_and_attack(board,myside,my_chess,pos):
                 min_hp = enemy_hp
                 last_action = action
     return last_action
+
+# 获取机器人最大攻击范围
+def get_max_attack_range(bot):
+    attack_range = []
+    x = bot.row
+    y = bot.col
+    if bot.type == "warrior" or bot.type == "archer":
+        for dx in range(-3, 4):
+            if x + dx >= 0 and x + dx <= 7:
+                for dy in range(-3, 4):
+                    if y + dy >= 0 and y + dy <= 7 and abs(dx) + abs(dy) <= 3:
+                        attack_range.append((x + dx, y + dy))
+    elif bot.type == "protector":
+        for dx in range(-2, 3):
+            if x + dx >= 0 and x + dx <= 7:
+                for dy in range(-2, 3):
+                    if y + dy >= 0 and y + dy <= 7 and abs(dx) + abs(dy) <= 3:
+                        attack_range.append((x + dx, y + dy))
+    return attack_range
+
+# 如果my_bot在enm_bot的最大攻击范围内，则返回1，否则返回0
+def bot_alert(my_bot, enm_bot):
+    position = (my_bot.row, my_bot.col)
+    if position in get_max_attack_range(enm_bot):
+        return 1
+    else:
+        return 0
+
+# 获取my_bot撤退出enm_bot当前最大攻击范围的移动范围，当无法逃离enm_bot的最大
+# 攻击范围，则返回空列表
+def evacuation_range(board, my_bot, enm_bot):
+    enm_max_attack_range = get_max_attack_range(enm_bot)
+    my_bot_valid_move_range = realm.get_valid_move(board.layout, board.my_side, realm.ChessType(my_bot.id))
+    retreat_range = list(filter(lambda x: x not in enm_max_attack_range, my_bot_valid_move_range))
+    return retreat_range
+
+# 让my_bot靠近enm_bot，且不进入enm_bot的攻击范围，返回可移动的范围
+# 如果无法进一步接近或逃不出enm_bot的攻击范围，则返回空列表
+def pursuit(board, my_bot, enm_bot):
+    now_position = (my_bot.row, my_bot.col)
+    enm_position = (enm_bot.row, enm_bot.col)
+    enm_max_attack_range = get_max_attack_range(enm_bot)
+    my_bot_valid_move_range = realm.get_valid_move(board.layout, board.my_side, realm.ChessType(my_bot.id))
+    safe_move_range = list(filter(lambda x: x not in enm_max_attack_range, my_bot_valid_move_range))
+    
+    # 如果已经进入敌法攻击范围且躲不了，而返回空列表
+    if len(safe_move_range) == 0:
+        return 0, []
+
+    now_distance = cal_distance(now_position, enm_position)
+    next_move_range = []
+    for pos in safe_move_range:
+        if cal_distance(pos, enm_position) < now_distance:
+            next_move_range.append(pos)
+
+    # 如果无法进一步接近目标，说明被挡路了，则返回不进入敌人的移动范围
+    if len(next_move_range) == 0:
+        return 1, safe_move_range
+    
+    return 2, next_move_range
+
+# 追击敌人
+def pursuit_attack(board, my_bot, enm_bot):
+    # 能打则打
+    if enm_bot in my_bot.get_attackable_bots_in_move_range():
+        my_bot.to_attack(enm_bot)
+    else:
+        flag, move_range = pursuit(board, my_bot, enm_bot)
+        # 躲不了就直接打
+        if flag == 0:
+            my_bot.to_attack(enm_bot)
+        
+        # 被挡路了，则先撤到安全区域，再打挡路的机器
+        elif flag == 1:
+            my_bot.move_to(move_range[0])
+            attack_target = my_bot.get_attackable_bots_in_move_range()
+            if len(attack_target) != 0:
+                my_bot.to_attack(attack_target[0])
+        else:
+            my_bot.move_to(move_range[0])
+            attack_target = my_bot.get_attackable_bots_in_move_range()
+            if len(attack_target) != 0:
+                my_bot.to_attack(attack_target[0])
+
+# 查看己方士兵能否打赢敌方士兵
+def whether_win(my_bot, enm_bot):
+    my_bot_attack = my_bot.attack_strength
+    my_bot_hp = my_bot.hp
+    enm_bot_attack = enm_bot.attack_strength
+    enm_bot_hp = enm_bot.hp
+
+    if(math.ceil(my_bot_hp/enm_bot_attack) >= math.ceil(enm_bot_hp/enm_bot_attack)):
+        return 1
+    else:
+        return 0
+
+# 计算两点距离
+def cal_distance(point1, point2):
+    return abs(point1[0] - point2[0]) + abs(point1[1] - point2[1])
+
+# 如果有敌方士兵在警戒区内且一直向司令移动则返回1，如果只在警戒区内则返回2，
+# 如果不在警戒区内则返回0
+def whether_alert(side,ops):
+    enms = enemy_bots()
+    ops_bot_id = ops[0].bot.id
+    ops_bot_last_row = ops[0].bot.row
+    ops_bot_last_col = ops[0].bot.col
+    last_distance = cal_distance([ops_bot_last_row,ops_bot_last_col],[7,0] if side == 'W' else [0,7])
+    for enm in enms:
+        row = enm.row
+        col = enm.col
+        now_distance = cal_distance([row,col],[7,0] if side == 'W' else [0,7])
+        if side == 'W' and row <= col:
+            if ops_bot_id == enm.id and last_distance > now_distance:
+                return 1
+            else:
+                return 2
+        elif side == 'E' and row >= col:
+            if ops_bot_id == enm.id and last_distance > now_distance:
+                return 1
+            else:
+                return 2
+        else:
+            return 0
