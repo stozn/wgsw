@@ -623,7 +623,7 @@ def update(board):
 
     if act:
         # grab_supplies_sequence = [pro, arc, war]    # 对战 千帆秋雁 改用这个顺序
-        grab_supplies_sequence = [war, pro, arc]
+        grab_supplies_sequence = [war, pro, arc]    # 对战其他人用这个顺序
         for bot in grab_supplies_sequence:
             if bot:
                 if pro and bot == pro and special_circumstances_for_pro():
