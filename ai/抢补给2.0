@@ -622,7 +622,7 @@ def update(board):
                     break        
 
     if act:
-        # grab_supplies_sequence = [pro, arc, war]
+        # grab_supplies_sequence = [pro, arc, war]    # 对战 千帆秋雁 改用这个顺序
         grab_supplies_sequence = [war, pro, arc]
         for bot in grab_supplies_sequence:
             if bot:
