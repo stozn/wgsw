@@ -599,12 +599,14 @@ def update(board):
                 if breaking_deadlock() and ((my_side == 'W' and board.turn_number >= 94) or (my_side == 'E' and board.turn_number >= 93)) and get_pos(bot) not in supplies:
                     avaliable_supplies = list(filter(lambda x: realm.get_chess_details_by_pos(board.layout, x) == None, supplies))
                     next_pos = avaliable_supplies[0]
-                    min_dis = cal_distance(get_pos(bot), next_pos)
+                    min_dis = len(bot.path_to(next_pos))
                     for pos in avaliable_supplies:
-                        if cal_distance(get_pos(bot), pos) < min_dis:
+                        if len(bot.path_to(pos)) < min_dis:
                             next_pos = pos
-                            min_dis = cal_distance(get_pos(bot), pos)
-                    bot.toward(next_pos)
+                            min_dis = len(bot.path_to(pos))
+                    next_move_pos, _ = get_next_move_pos(bot, next_pos)
+                    bot.move_to(next_move_pos)
+                    auto_attack(bot, next_move_pos)
                     act = False
                     break
     
@@ -620,6 +622,7 @@ def update(board):
                     break        
 
     if act:
+        # grab_supplies_sequence = [pro, arc, war]
         grab_supplies_sequence = [war, pro, arc]
         for bot in grab_supplies_sequence:
             if bot:
