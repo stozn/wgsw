@@ -4,6 +4,7 @@ import math
 import heapq
 import functools
 
+
 class Node:
     def __init__(self, x, y, g=0, h=0, parent=None):
         self.x = x
@@ -152,18 +153,13 @@ def update(board):
         return None  # 找不到路径
 
     def breaking_deadlock():
-        count = 0
         for element in enm_action_history:
-            if element is None:
-                count += 1
-                if count > 15: 
-                    return 1
-            else:
-                count = 0
+            if enm_action_history.count(element) > 15:
+                return  len(enms) >= 3 and 1
         return 0
 
     def attack_priority(my_bot):
-        def cmp(enm1, enm2):
+        def cmp1(enm1, enm2):
             if enm1.attack_strength > enm2.attack_strength:
                 return -1
             elif enm1.attack_strength < enm2.attack_strength:
@@ -173,7 +169,7 @@ def update(board):
                     return -1
                 else:
                     return 1
-        return cmp
+        return cmp1
 
     # 获取机器人最大攻击范围
     def get_max_attack_range(bot):
@@ -389,7 +385,7 @@ def update(board):
         all_enms_max_attack_range = get_all_enms_max_attack_range()
         safe_move_range = list(filter(lambda x: x not in all_enms_max_attack_range, my_bot_valid_move_range))
 
-        def cmp(pos1, pos2):
+        def cmp3(pos1, pos2):
             if cal_safe_level(pos1) < cal_safe_level(pos2):
                 return -1
             elif cal_safe_level(pos1) > cal_safe_level(pos2):
@@ -401,7 +397,7 @@ def update(board):
                     return 1
 
         if len(safe_move_range) != 0:
-            safe_move_range = sorted(safe_move_range, key = functools.cmp_to_key(cmp))
+            safe_move_range = sorted(safe_move_range, key = functools.cmp_to_key(cmp3))
             return safe_move_range[0]
         else:
             return None
@@ -417,7 +413,7 @@ def update(board):
 
         enms_can_attack_my_bot = sorted(enms_can_attack_my_bot, key = functools.cmp_to_key(attack_priority(my_bot)))
 
-        if enms_can_attack_my_bot[0] not in my_bot.get_attackable_bots(new_pos):
+        if enms_can_attack_my_bot[0] not in my_bot.get_attackable_bots(new_pos) and enms_can_attack_my_bot[0] in get_attackable_bots_in_move_range(my_side, my_bot):
             for bot in bots:
                 if enms_can_attack_my_bot[0] in bot.get_attackable_bots_in_move_range() and bot.attack_strength > my_bot.attack_strength:
                     return None, 0
@@ -433,12 +429,67 @@ def update(board):
         flag2 = auto_attack(my_bot, next_move_pos)
         return flag1 or flag2
 
+    def arc_close_to_target(enm):
+        enm_pos = get_pos(enm)
+        arc_pos = get_pos(arc)
+        enm_max_attack_range = get_max_attack_range(enm)
+        next_move_pos, _ = get_next_move_pos(arc, enm_pos)
+        if next_move_pos in enm_max_attack_range or arc_pos in enm_max_attack_range:
+            return 1
+        else:
+            return 0
+
+    def pro_whether_attack_enm_in_supplies(my_bot, enm):
+        if arc and arc_close_to_target(enm):
+            return 1
+        else:
+            return 0
+
+    def whether_grab_supplies():
+        if enm_action_history and enm_action_history[-1]:
+            enm = get_enm_bot(enm_action_history[-1].chess_id)
+            enm_now_pos = get_pos(enm)
+            enm_last_pos = (enm_now_pos[0] - enm_action_history[-1].mdr, enm_now_pos[1] - enm_action_history[-1].mdc)
+
+            bot_sequence = [arc, war, pro]
+            for bot in bot_sequence:
+                if bot and enm in get_attackable_bots_in_move_range(my_side, bot) and enm_now_pos in get_max_attack_range(bot) and enm_last_pos not in get_max_attack_range(bot):
+                    return to_attack(bot, enm)
+        return 0
+
+    def can_not_enter_supplies(my_bot):
+        supplies_around = [(2,2), (2,3), (2,4), (2,5), (3,5), (4,5), (5,5), (5,4), (5,3), (5,2), (4,2), (3,2)]
+        min_dis = 20
+        for supply in supplies:
+            new_dis = len(my_bot.path_to(supply))
+            if new_dis < min_dis:
+                min_dis = new_dis
+
+        if my_bot.type != 'warrior' and get_pos(my_bot) in supplies_around and min_dis >= 2:
+            my_bot_valid_move_range = realm.get_valid_move(board.layout, my_side, get_ChessType_id(my_side, my_bot.id))
+            move_range = list(filter(lambda x : len(get_attackable_bots(my_side, my_bot, x)) > 0, my_bot_valid_move_range))
+            
+            def cmp4(pos1, pos2):
+                if cal_distance(pos1, (3.5, 3.5)) > cal_distance(pos2, (3.5, 3.5)):
+                    return -1
+                elif cal_distance(pos1, (3.5, 3.5)) < cal_distance(pos2, (3.5, 3.5)):
+                    return 1
+                else:
+                    if cal_safe_level(pos1) < cal_safe_level(pos2):
+                        return -1
+                    else:
+                        return 1
+
+            sorted(move_range, key=functools.cmp_to_key(cmp4))
+            return move_range[0], 1
+        else:
+            return None, 0
+
     def grab_supplies(my_bot):
         all_enms_max_attack_range = get_all_enms_max_attack_range()
         safe_supplies = list(filter(lambda x: x not in all_enms_max_attack_range and realm.get_chess_details_by_pos(board.layout, x) == None, supplies))
         my_bot_valid_move_range = realm.get_valid_move(board.layout, my_side, get_ChessType_id(my_side, my_bot.id))
         my_bot_pos = get_pos(my_bot)
-
         if get_pos(my_bot) in supplies:
             if len(my_bot.get_attackable_bots_in_move_range()) == 0:
                 return 0
@@ -451,7 +502,7 @@ def update(board):
                         if enm in my_bot.get_attackable_bots(stay_in_supply):
                             stay_in_supplies_and_can_attack.append(stay_in_supply)
                 stay_in_supplies_and_can_attack = list(set(stay_in_supplies_and_can_attack))
-    
+
                 if len(stay_in_supplies_and_can_attack) != 0:
                     stay_in_supplies_and_can_attack = sorted(stay_in_supplies_and_can_attack, key = cal_safe_level)
                     target_pos = stay_in_supplies_and_can_attack[0]
@@ -487,6 +538,8 @@ def update(board):
                             return to_attack(my_bot, atk_enms[0])
 
         if len(safe_supplies) != 0:
+            if whether_grab_supplies():
+                return 1
             safe_supplies = sorted(safe_supplies, key = cal_danger_level, reverse=True)
             min_dis = cal_distance(my_bot_pos, safe_supplies[0])
             target_pos = safe_supplies[0]
@@ -553,6 +606,8 @@ def update(board):
 
             else:
                 target_enm = sorted(enm_bot_in_supplise, key=functools.cmp_to_key(attack_priority(my_bot)))[0]
+                # if pro and my_bot == pro and not pro_whether_attack_enm_in_supplies(my_bot,target_enm):
+                #    return 0
                 move_range = []
                 for supply in supplies:
                     if realm.get_chess_details_by_pos(board.layout, supply) == None and target_enm in my_bot.get_attackable_bots(supply):
@@ -576,12 +631,23 @@ def update(board):
             if enm.type == 'protector':
                 enm_pro = enm
         
-        if arc and pro and enm_pro and enm_action_history and enm_action_history[-1] and enm_action_history[-1].chess_id == get_ChessType_id(enm_side, enm_pro.id) and (pro.hp + 5 * 25) / enm_pro.attack_strength > 5:
+        if (arc or war) and pro and enm_pro and enm_action_history and enm_action_history[-1] and enm_action_history[-1].chess_id == get_ChessType_id(enm_side, enm_pro.id) and (pro.hp + 5 * 25) / enm_pro.attack_strength > 5:
             my_pro_pos = get_pos(pro)
             enm_pro_pos = get_pos(enm_pro)
             enm_attack_obj = (enm_pro_pos[0] + enm_action_history[-1].adr, enm_pro_pos[1] + enm_action_history[-1].adc)
             if my_pro_pos in supplies and enm_attack_obj == my_pro_pos and len(pro.get_attackable_bots(my_pro_pos)) == 1 and enm_pro in pro.get_attackable_bots(my_pro_pos):
                 return 1
+        else:
+            return 0
+    
+    def next_move_enter_supplies(my_bot):
+        min_dis = 20
+        for supply in supplies:
+            new_dis = len(my_bot.path_to(supply))
+            if new_dis < min_dis:
+                min_dis = new_dis
+        if min_dis == 2:
+            return 1
         else:
             return 0
 
@@ -621,9 +687,20 @@ def update(board):
                     act = False
                     break        
 
+    if act and pro and arc:
+        if next_move_enter_supplies(pro) or (cal_distance(get_pos(pro), get_pos(arc)) == 1 and len(get_attackable_bots_in_move_range(my_side, arc)) == 0):
+            if not special_circumstances_for_pro():
+                flag = grab_supplies(pro)
+                if flag == 1:
+                    act = False
+        else:
+            flag = grab_supplies(arc)
+            if flag == 1:
+                act = False
+
     if act:
-        # grab_supplies_sequence = [pro, arc, war]    # 对战 千帆秋雁 改用这个顺序
-        grab_supplies_sequence = [war, pro, arc]    # 对战其他人用这个顺序
+        grab_supplies_sequence = [pro, arc, war]
+        # grab_supplies_sequence = [war, pro, arc]
         for bot in grab_supplies_sequence:
             if bot:
                 if pro and bot == pro and special_circumstances_for_pro():
