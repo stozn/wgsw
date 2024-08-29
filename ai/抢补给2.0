@@ -669,6 +669,8 @@ def update(board):
         return 0
 
     def can_not_enter_supplies(side, bot):
+        if get_pos(bot) in supplies:
+            return 0
         close_supply = None
         min_step = 20
         for supply in supplies:
@@ -676,15 +678,16 @@ def update(board):
             if realm.get_chess_details_by_pos(board.layout, supply) == None and now_step < min_step:
                 close_supply = supply
                 min_step = now_step
-        
+    
         if close_supply != None:
             if side == my_side:
                 enm_min_step = 20
                 for enm in enms:
-                    enm_now_step = math.ceil((len(enm.path_to(supply)) - 1) / (2 if enm.type == 'warrior' else 1))
-                    if enm_now_step < enm_min_step:
-                        enm_min_step = enm_now_step
-                
+                    if enm.id != 0:
+                        enm_now_step = math.ceil((len(enm.path_to(close_supply)) - 1) / (2 if enm.type == 'warrior' else 1))
+                        if enm_now_step < enm_min_step:
+                            enm_min_step = enm_now_step
+                            
                 if enm_min_step < min_step:
                     return 1
                 else:
@@ -692,9 +695,10 @@ def update(board):
             else:
                 my_bot_min_step = 20
                 for my_bot in bots:
-                    my_bot_now_step = math.ceil((len(my_bot.path_to(supply)) - 1) / (2 if my_bot.type == 'warrior' else 1))
-                    if my_bot_now_step < my_bot_min_step:
-                        my_bot_min_step = my_bot_now_step
+                    if my_bot.id != 0:
+                        my_bot_now_step = math.ceil((len(my_bot.path_to(close_supply)) - 1) / (2 if my_bot.type == 'warrior' else 1))
+                        if my_bot_now_step < my_bot_min_step:
+                            my_bot_min_step = my_bot_now_step
                 
                 if my_bot_min_step <= min_step:
                     return 1
@@ -766,6 +770,18 @@ def update(board):
             if flag:
                 return 1
         return 0
+
+    def enm_arc_in_war_attack_range():
+        enm_arc = None
+        for enm in enms:
+            if enm.type == 'archer':
+                enm_arc = enm
+                break
+        if enm_arc and enm_arc in get_attackable_bots_in_move_range(my_side, war):
+            return 1
+        else:
+            return 0
+
 
     """
     def arc_attack_pro(enm_pro):
@@ -847,7 +863,7 @@ def update(board):
         act = False
     
     if act and pro and arc:
-        if war and pro_and_arc_wait():
+        if war and (pro_and_arc_wait() or enm_arc_in_war_attack_range()):
             flag = grab_supplies(war)
             if flag == 1:
                 act = False
@@ -882,6 +898,16 @@ def update(board):
                             break
                     else:
                         flag = grab_supplies(arc)
+                        if flag == 1:
+                            act = False
+                            break
+                elif bot.type == 'protector':
+                    if pro_do_not_move():
+                        pro.attack(get_attackable_bots(my_side, pro, get_pos(pro))[0])
+                        act = False
+                        break
+                    else:
+                        flag = grab_supplies(pro)
                         if flag == 1:
                             act = False
                             break
