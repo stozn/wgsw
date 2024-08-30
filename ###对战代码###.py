@@ -487,7 +487,7 @@ def update(board):
                 if len(stay_in_supplies_and_can_attack) != 0:
                     target_pos = stay_in_supplies_and_can_attack[0]
                     next_move_pos, flag1 = get_next_move_pos(my_bot, target_pos)
-                    if not get_attackable_bots(my_side, my_bot, get_pos(my_bot)):
+                    if get_attackable_bots(my_side, my_bot, get_pos(my_bot)):
                         next_move_pos = get_pos(my_bot)
                     potential_threat, flag3 = fighting_back(my_bot, next_move_pos)
                     if flag3:
