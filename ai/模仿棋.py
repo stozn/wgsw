@@ -26,7 +26,7 @@ def update(context):
     # 如果指挥官被攻击，则快速回防
     for enm in enms:
         print([bot.type for bot in enm.get_attackable_bots_in_move_range()])
-        if 'commander' in [bot.type for bot in enm.get_attackable_bots_in_move_range()]:
+        if 'commander' in [bot.type for bot in enm.get_attackable_bots_in_move_range()] and len(bots)>1:
             sorted([bot for bot in bots if bot.type != 'commander'],
                    key=lambda bot: bot.distance(enm))[0].to_attack(enm)
             act = False
@@ -61,18 +61,20 @@ def update(context):
 
     # 优先使用战士快速抢占补给区（3,3）ps：暂时是按进攻方
     pos = (3, 3)
-    if act and war and not on(war, pos):
+    if ops and act and war and not on(war, pos):
         war.toward(pos)
         act = False
 
     # 其次使用弓箭手抢占补给区（4,3）,提供火力输出
     pos = (4, 3)
-    if act and arc and not on(arc, pos):
+    if ops and act and arc and not on(arc, pos):
         arc.toward(pos)
         act = False
 
     # 然后使用守卫抢占补给区（4,4）
     pos = (4, 4)
-    if act and pro and not on(pro, pos):
+    if ops and act and pro and not on(pro, pos):
         pro.toward(pos)
         act = False
+    
+
