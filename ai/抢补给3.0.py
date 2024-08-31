@@ -210,8 +210,19 @@ def update(board):
 
         return None  # 找不到路径
 
+    def cmp_com_hp():
+        enm_com = None
+        for enm in enms:
+            if enm.type == 'commander':
+                enm_com = enm
+        if com.hp > enm_com.hp:
+            return (com.hp - enm_com.hp) / 25
+        else:
+            return 0
+
     def breaking_deadlock():
-        if turn_supplies_empty >= 6 and board.turn_number >= 50:
+        flag = cmp_com_hp()
+        if turn_supplies_empty >= 6 and ((flag == 0 and board.turn_number >= 50) or (flag and board.turn_number >= min(80 + flag, 94))):
             return 1
         else:
             return 0
@@ -749,7 +760,7 @@ def update(board):
             if enm.type == 'archer':
                 enm_arc = enm
                 break
-        if enm_arc and enm_arc in get_attackable_bots_in_move_range(my_side, pro) and get_pos(enm_arc) not in supplies and get_pos(pro) in supplies and can_not_enter_supplies(enm_side, enm_arc):
+        if enm_arc and enm_arc in get_attackable_bots_in_move_range(my_side, pro) and get_pos(enm_arc) not in supplies and get_pos(pro) in supplies and can_not_enter_supplies(enm_side, enm_arc) and whether_win(pro, enm_arc):
             if not(arc and get_pos(arc) in supplies and enm_arc in get_attackable_bots_in_move_range(my_side, arc)) and not(war and get_pos(war) in supplies and enm_arc in get_attackable_bots_in_move_range(my_side, war)):
                 return 1
         return 0
@@ -811,7 +822,7 @@ def update(board):
                 enm_arc = enm
                 break
         pro_pos = get_pos(pro)
-        if enm_arc and pro_pos in supplies and pro_pos not in get_max_attack_range(enm_arc) and len(get_attackable_bots_in_move_range(my_side, pro)) == 1:
+        if enm_arc and pro_pos in supplies and pro_pos not in get_max_attack_range(enm_arc) and len(get_attackable_bots(my_side, pro, pro_pos)) == 1:
             cnt = 0
             for supply in supplies:
                 if supply != pro_pos and supply in get_max_attack_range(enm_arc):
@@ -875,11 +886,25 @@ def update(board):
         my_bot_hp = my_bot.hp
         enm_bot_attack = enm_bot.attack_strength
         enm_bot_hp = enm_bot.hp
+        my_bot_max_hp = realm.get_chess_profile(get_ChessType_id(my_side, my_bot.id))['init_hp']
+        enm_bot_max_hp = realm.get_chess_profile(get_ChessType_id(enm_side, enm_bot.id))['init_hp']
 
-        if(math.ceil(my_bot_hp/enm_bot_attack) >= math.ceil(enm_bot_hp/enm_bot_attack)):
-            return 1
-        else:
+        while my_bot_hp > 0 and enm_bot_hp > 0:
+            if get_pos(my_bot) in supplies:
+                my_bot_hp = min(my_bot_max_hp, my_bot_hp + 25)
+            enm_bot_hp -= my_bot_attack
+
+            if enm_bot_hp <= 0:
+                break
+
+            if get_pos(enm_bot) in supplies:
+                enm_bot_hp = min(enm_bot_max_hp, enm_bot_hp + 25)
+            my_bot_hp -= enm_bot_attack
+
+        if my_bot_hp <= 0:
             return 0
+        else:
+            return 1
 
     def have_efeatable_object(my_bot):
         atk_enms = sorted(get_attackable_bots_in_move_range(my_side, my_bot), key=functools.cmp_to_key(attack_priority(my_bot)))
@@ -968,11 +993,15 @@ def update(board):
         act = False
     
     if act and pro and arc:
+        enm_pro = None
+        for enm in enms:
+            if enm.type == 'protector':
+                enm_pro = enm 
         if war and (pro_and_arc_wait() or enm_arc_in_war_attack_range()):
             flag = grab_supplies(war)
             if flag == 1:
                 act = False
-        elif (get_pos(pro) not in supplies and next_move_enter_supplies(pro)) or (cal_distance(get_pos(pro), get_pos(arc)) == 1 and len(get_attackable_bots_in_move_range(my_side, arc)) == 0) or pro_can_attack_enm_arc() or (arc_do_not_get_close() and ((pro.hp + 2 * 25) / 150) > 2 and not can_not_enter_supplies(my_side, pro)) or (have_efeatable_object(pro) and can_not_enter_supplies(my_side, pro)):
+        elif (get_pos(pro) not in supplies and next_move_enter_supplies(pro)) or (cal_distance(get_pos(pro), get_pos(arc)) == 1 and len(get_attackable_bots_in_move_range(my_side, arc)) == 0) or pro_can_attack_enm_arc() or (arc_do_not_get_close() and enm_pro and ((enm_pro.hp + 2 * 25) / 250) >= 2 and not can_not_enter_supplies(my_side, pro)) or (have_efeatable_object(pro) and can_not_enter_supplies(my_side, pro)):
             if pro_do_not_move():
                 pro.attack(get_attackable_bots(my_side, pro, get_pos(pro))[0])
                 act = False
