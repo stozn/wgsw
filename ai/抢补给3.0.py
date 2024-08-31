@@ -25,6 +25,10 @@ def update(board):
 
     def my_bot_by_type(tp):
         return next((b for b in bots if b.type == tp), None)
+    
+    # 计算距离
+    def cal_distance(point1, point2):
+        return abs(point1[0] - point2[0]) + abs(point1[1] - point2[1])
 
     # 使用闭包函数获取特定类型的机器人
     war = my_bot_by_type('warrior')
@@ -43,7 +47,17 @@ def update(board):
     enm_action_history = []
     if board.action_history:
         enm_action_history = board.action_history[1::2] if enm_side == 'E' else board.action_history[0::2]
-
+    warning_area = []
+    if my_side == 'W':
+        for x in range(0,8):
+            for y in range(0,8):
+                if cal_distance((x,y), (7,0)) <= 4:
+                    warning_area.append((x,y))
+    elif my_side == 'E':
+        for x in range(0,8):
+            for y in range(0,8):
+                if cal_distance((x,y), (0,7)) <= 4:
+                    warning_area.append((x,y))
 
     def safely_path_to(my_bot, start, end):
         grid = [[0] * 8 for _ in range(8)]
@@ -266,10 +280,6 @@ def update(board):
             danger_range += get_max_attack_range(enm)
         danger_range = list(set(danger_range))
         return danger_range
-    
-    # 计算距离
-    def cal_distance(point1, point2):
-        return abs(point1[0] - point2[0]) + abs(point1[1] - point2[1])
 
     def get_pos(bot):
         return (bot.row, bot.col)
@@ -953,7 +963,7 @@ def update(board):
     # 如果指挥官被攻击，则快速回防
     if act and len(bots) > 1:
         for enm in enms:
-            if 'commander' in [bot.type for bot in enm.get_attackable_bots_in_move_range()] and act:
+            if 'commander' in [bot.type for bot in enm.get_attackable_bots_in_move_range()] or get_pos(enm) in warning_area:
                 target_bot = sorted([bot for bot in bots if bot.type != 'commander'],
                     key=lambda bot: math.ceil(((len(bot.path_to(get_pos(enm))) - 1) / (2 if bot.type == 'warrior' else 1))))[0]
                 flag = to_attack(target_bot, enm)
